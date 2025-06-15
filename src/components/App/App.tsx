@@ -1,61 +1,85 @@
-import { useState } from 'react';
-import toast, { Toaster } from 'react-hot-toast';
+import { useEffect, useState } from 'react';
 import type { Movie } from '../../types/movie';
 import { fetchMovies } from '../../services/movieService';
-import SearchBar from '../SearchBar/SearchBar';
-import MovieGrid from '../MovieGrid/MovieGrid';
-import Loader from '../Loader/Loader';
-import ErrorMessage from '../ErrorMessage/ErrorMessage';
-import MovieModal from '../MovieModal/MovieModal';
- 
+import SearchBar from '../SearchBar';
+import MovieGrid from '../MovieGrid';
+import Loader from '../Loader';
+import ErrorMessage from '../ErrorMessage';
+import MovieModal from '../MovieModal';
 
-export default function App() {
+import toast, { Toaster } from 'react-hot-toast';
+
+const App = () => {
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [movies, setMovies] = useState<Movie[]>([]);
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 
-  const handleSearch = async (query: string) => {
-    setLoading(true);
-    setError(false);
-    try {
-      const results = await fetchMovies(query);
+  useEffect(() => {
+    if (!query.trim()) return;
 
-      if (results.length === 0) {
-        toast.error('No movies found for your request.');
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(false);
         setMovies([]);
-        return;
-      }
 
-      setMovies(results);
-    } catch {
-      toast.error('Something went wrong!');
-      setError(true);
-    } finally {
-      setLoading(false);
+        const results = await fetchMovies(query, page);
+
+        if (results.length === 0) {
+          toast('No movies found for your request.');
+        }
+
+        setMovies(results);
+      } catch (err) {
+        setError(true);
+        toast.error('Something went wrong!');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [query, page]);
+
+  const handleSearch = (formData: FormData) => {
+    const newQuery = formData.get('query')?.toString().trim() || '';
+    if (!newQuery) {
+      toast.error('Please enter your search query.');
+      return;
     }
+    setQuery(newQuery);
+    setPage(1);
   };
 
-   const handleSelectMovie = (movie: Movie) => {
-    setSelectedMovie(movie); 
+  const handleSelect = (movie: Movie) => {
+    setSelectedMovie(movie);
   };
 
   const handleCloseModal = () => {
-    setSelectedMovie(null); 
+    setSelectedMovie(null);
   };
 
+  const shouldShowGrid = !loading && !error && movies.length > 0;
+
   return (
-    <>
+    <div>
+      <SearchBar action={handleSearch} />
       <Toaster />
-      <SearchBar onSubmit={handleSearch} />
       {loading && <Loader />}
       {error && <ErrorMessage />}
-      {!loading && !error && (
-        <MovieGrid movies={movies} onSelect={handleSelectMovie} />
-      )}
+      {shouldShowGrid && <MovieGrid movies={movies} onSelect={handleSelect} />}
       {selectedMovie && (
         <MovieModal movie={selectedMovie} onClose={handleCloseModal} />
       )}
-    </>
+    </div>
   );
-}
+};
+
+export default App;
+
+
+
+
